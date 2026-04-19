@@ -1,0 +1,187 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "plan": { "type": "string", "enum": ["free", "starter", "pro", "premium"] },
+        "basePlan": { "type": "string", "enum": ["free", "starter", "pro", "premium"] },
+        "proExpiry": { "type": "string", "format": "date-time" },
+        "referralCode": { "type": "string" },
+        "referredBy": { "type": "string" },
+        "subscriptionId": { "type": "string" },
+        "theme": {
+          "type": "object",
+          "properties": {
+            "primary": { "type": "string" },
+            "secondary": { "type": "string" },
+            "background": { "type": "string" },
+            "accent": { "type": "string" }
+          }
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "aiTone": { "type": "string", "enum": ["professional", "formal", "casual", "empathetic"] },
+            "language": { "type": "string" },
+            "fontSize": { "type": "string", "enum": ["small", "medium", "large"] },
+            "darkMode": { "type": "boolean" },
+            "notifications": {
+              "type": "object",
+              "properties": {
+                "email": { "type": "boolean" },
+                "push": { "type": "boolean" },
+                "dailyReminders": { "type": "boolean" }
+              }
+            },
+            "autoSpeak": { "type": "boolean" },
+            "soundEffects": { "type": "boolean" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Referral": {
+      "title": "Referral",
+      "description": "Referral tracking",
+      "type": "object",
+      "properties": {
+        "referrerId": { "type": "string" },
+        "referredId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "rewardClaimed": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["referrerId", "referredId", "status"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "AI Chat history",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string", "enum": ["user", "model"] },
+              "content": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Journal": {
+      "title": "Journal",
+      "description": "User journal entries",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "mood": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Habit": {
+      "title": "Habit",
+      "description": "User habits",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "completedDates": { "type": "array", "items": { "type": "string", "format": "date" } },
+        "streak": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Mood": {
+      "title": "Mood",
+      "description": "Daily mood tracking",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "value": { "type": "integer" },
+        "note": { "type": "string" },
+        "date": { "type": "string", "format": "date" }
+      }
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "User support requests",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "category": { "type": "string", "enum": ["Technical Issue", "Billing", "Feedback", "General Inquiry"] },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Low", "Medium", "High"] },
+        "status": { "type": "string", "enum": ["Open", "In Progress", "Resolved", "Closed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userEmail", "category", "subject", "message"]
+    },
+    "AssessmentResult": {
+      "title": "AssessmentResult",
+      "description": "Results of psychological assessments",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "assessmentId": { "type": "string" },
+        "assessmentTitle": { "type": "string" },
+        "score": { "type": "integer" },
+        "label": { "type": "string" },
+        "interpretation": { "type": "string" },
+        "responses": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "assessmentId", "score", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile document"
+    },
+    "/users/{userId}/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "User chat sessions"
+    },
+    "/users/{userId}/journals/{journalId}": {
+      "schema": "Journal",
+      "description": "User journal entries"
+    },
+    "/users/{userId}/habits/{habitId}": {
+      "schema": "Habit",
+      "description": "User habits"
+    },
+    "/users/{userId}/moods/{moodId}": {
+      "schema": "Mood",
+      "description": "User daily moods"
+    },
+    "/users/{userId}/assessments/{resultId}": {
+      "schema": "AssessmentResult",
+      "description": "User assessment results"
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": "SupportTicket",
+      "description": "User support requests"
+    },
+    "/referrals/{referralId}": {
+      "schema": "Referral",
+      "description": "Referral tracking documents"
+    }
+  }
+}

@@ -1,0 +1,171 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Helper Primitives
+    // ===============================================================
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isAdmin() { 
+      return isVerified() && 
+             (request.auth.token.email == "royrk3369@gmail.com" || 
+              exists(/databases/$(database)/documents/admins/$(request.auth.uid))); 
+    }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // ===============================================================
+    // Validation Blueprints (Schema & Type Safety)
+    // ===============================================================
+    
+    function isValidUser(data) {
+      let requiredFields = ['uid', 'email', 'createdAt', 'plan'];
+      return data.keys().hasAll(requiredFields) &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() > 5 &&
+             data.plan in ['free', 'starter', 'pro', 'premium'] &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 1000000)) &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is string);
+    }
+
+    function isValidChat(data, userId) {
+      return data.userId == userId &&
+             data.messages is list && data.messages.size() <= 1000 &&
+             (data.updatedAt is timestamp || data.updatedAt == null);
+    }
+
+    function isValidJournal(data, userId) {
+      return data.userId == userId &&
+             data.title is string && data.title.size() <= 200 &&
+             data.content is string && data.content.size() <= 50000 &&
+             data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             (data.createdAt is timestamp || data.createdAt == null);
+    }
+
+    function isValidHabit(data, userId) {
+      return data.userId == userId &&
+             data.name is string && data.name.size() <= 100 &&
+             data.completedDates is list && data.completedDates.size() <= 5000 &&
+             data.streak is int &&
+             (data.createdAt is timestamp || data.createdAt == null);
+    }
+
+    function isValidMood(data, userId) {
+      return data.userId == userId &&
+             data.value is int && data.value >= 1 && data.value <= 5 &&
+             data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isValidAssessmentResult(data, userId) {
+      let requiredFields = ['userId', 'assessmentId', 'assessmentTitle', 'score', 'label', 'interpretation', 'createdAt'];
+      return data.keys().hasAll(requiredFields) &&
+             data.userId == userId &&
+             data.assessmentId is string &&
+             data.score is int &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidSupportTicket(data) {
+      let requiredFields = ['userId', 'userEmail', 'category', 'subject', 'message', 'createdAt'];
+      return data.keys().hasAll(requiredFields) &&
+             data.userId == request.auth.uid &&
+             data.category in ['Technical Issue', 'Billing', 'Feedback', 'General Inquiry'] &&
+             data.subject is string && data.subject.size() <= 200 &&
+             data.message is string && data.message.size() <= 5000 &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Match Blocks (The Fortress)
+    // ===============================================================
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isVerified() && request.query.limit <= 1;
+      
+      allow create: if isVerified() && isValidId(userId) && userId == request.auth.uid && 
+                       isValidUser(incoming()) && incoming().plan == 'free';
+                       
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        // Action: Update Profile/Settings
+        (incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'settings', 'theme', 'updatedAt'])) ||
+        // Action: Claim Reward (Referral completion)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['plan', 'basePlan', 'proExpiry', 'updatedAt'])) ||
+        // Action: Subscription / Payment / Plan Management
+        (incoming().diff(existing()).affectedKeys().hasOnly(['plan', 'basePlan', 'lastPaymentId', 'updatedAt']))
+      ) && incoming().uid == existing().uid && 
+           incoming().email == existing().email && 
+           incoming().createdAt == existing().createdAt;
+
+      match /chats/{chatId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(chatId) && isValidChat(incoming(), userId);
+        allow update: if isOwner(userId) && isValidChat(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['messages', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /journals/{journalId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(journalId) && isValidJournal(incoming(), userId);
+        allow update: if isOwner(userId) && isValidJournal(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /habits/{habitId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(habitId) && isValidHabit(incoming(), userId);
+        allow update: if isOwner(userId) && isValidHabit(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['completedDates', 'completedToday', 'streak', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /moods/{moodId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(moodId) && isValidMood(incoming(), userId);
+        allow update: if isOwner(userId) && isValidMood(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['value', 'note', 'date', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /assessments/{resultId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(resultId) && isValidAssessmentResult(incoming(), userId);
+        allow update: if isOwner(userId) && isValidAssessmentResult(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['responses', 'score', 'label', 'interpretation']);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    match /support_tickets/{ticketId} {
+      allow list: if isAdmin() || (isVerified() && resource.data.userId == request.auth.uid);
+      allow get: if isAdmin() || (isVerified() && resource.data.userId == request.auth.uid);
+      allow create: if isVerified() && isValidId(ticketId) && isValidSupportTicket(incoming());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /referrals/{referralId} {
+      allow get: if isVerified() && (request.auth.uid == existing().referrerId || request.auth.uid == existing().referredId);
+      allow list: if isVerified() && (resource.data.referrerId == request.auth.uid || resource.data.referredId == request.auth.uid);
+      
+      allow create: if isVerified() && isValidId(referralId) && incoming().referredId == request.auth.uid;
+      
+      allow update: if isVerified() && (
+        // Referred user completes status upon payment
+        (request.auth.uid == existing().referredId && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'completedAt'])) ||
+        // Referrer claims reward in settings
+        (request.auth.uid == existing().referrerId && incoming().diff(existing()).affectedKeys().hasOnly(['rewardClaimed']))
+      ) && incoming().referrerId == existing().referrerId && incoming().referredId == existing().referredId;
+    }
+  }
+}
