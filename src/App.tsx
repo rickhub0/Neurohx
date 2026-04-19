@@ -14,6 +14,9 @@ import { ToastProvider } from './components/Toast';
 import { UserProvider } from './contexts/UserContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
+import { useUser } from './contexts/UserContext';
+import { Loader2 } from 'lucide-react';
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -34,35 +37,29 @@ export default function App() {
 }
 
 function AuthRedirect() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { profile, loading } = useUser();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  if (loading) return null;
-  return user ? <Navigate to="/dashboard/chat" replace /> : <Auth />;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#9ba9a6] flex items-center justify-center">
+        <Loader2 className="animate-spin text-white/50" size={48} />
+      </div>
+    );
+  }
+  return profile ? <Navigate to="/dashboard/chat" replace /> : <Auth />;
 }
 
 function DashboardGuard() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { profile, loading } = useUser();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  if (loading) return null;
-  return user ? <Dashboard /> : <Navigate to="/auth" replace />;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#9ba9a6] flex items-center justify-center">
+        <Loader2 className="animate-spin text-white/50" size={48} />
+      </div>
+    );
+  }
+  return profile ? <Dashboard /> : <Navigate to="/auth" replace />;
 }
 
 

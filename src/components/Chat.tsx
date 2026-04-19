@@ -122,7 +122,7 @@ export default function Chat() {
       } catch (err) {
         console.error('Error in chat snapshot listener:', err);
       }
-    });
+    }, (err) => console.error('❌ Chat list snapshot error:', err));
 
     // Also fetch history
     const historyQ = query(
@@ -278,7 +278,10 @@ export default function Chat() {
         updateDoc(doc(db, path), {
           messages: updatedMessages,
           updatedAt: serverTimestamp()
-        }).catch(e => handleFirestoreError(e, 'update', path));
+        }).catch(e => {
+          console.error('Error updating chat after typing:', e);
+          // Don't re-throw here to avoid unhandled rejection in non-awaited background task
+        });
         if (profile?.settings?.autoSpeak) speak(fullResponseRef.current);
         setIsTyping(false);
         setTypingMessage('');
@@ -297,7 +300,7 @@ export default function Chat() {
       setInput(context);
       // We need a small delay to ensure states are ready
       setTimeout(() => {
-        handleSend(undefined, undefined, context);
+        handleSend(undefined, undefined, context).catch(err => console.error('Auto-context send error:', err));
       }, 500);
     }
   }, [chatId, location.state]);
@@ -318,7 +321,6 @@ export default function Chat() {
       console.error('Create initial chat error:', error);
       showToast('Failed to initialize chat session.', 'error');
     } finally {
-      setLoading(true); // Keep loading false if it finished
       setLoading(false);
     }
   };
@@ -575,7 +577,7 @@ export default function Chat() {
       
       // Voice Commands
       if (transcript === 'send message' || transcript === 'send') {
-        handleSend();
+        handleSend().catch(err => console.error('Voice send error:', err));
         setIsListening(false);
         return;
       }
@@ -585,7 +587,7 @@ export default function Chat() {
         return;
       }
       if (transcript === 'save to journal' || transcript === 'save reflection') {
-        saveToJournal();
+        saveToJournal().catch(err => console.error('Voice save error:', err));
         setIsListening(false);
         return;
       }
@@ -603,7 +605,7 @@ export default function Chat() {
 
       // Default behavior: send as message if it's not a command
       if (transcript) {
-        handleSend(undefined, undefined, transcript);
+        handleSend(undefined, undefined, transcript).catch(err => console.error('Voice message send error:', err));
       }
       setIsListening(false);
     };
@@ -688,7 +690,7 @@ export default function Chat() {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        handleSend(undefined, audioBlob);
+        handleSend(undefined, audioBlob).catch(err => console.error('Audio send error:', err));
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -797,7 +799,7 @@ export default function Chat() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      deleteChat(chat.id);
+                      deleteChat(chat.id).catch(err => console.error('Delete chat error:', err));
                     }}
                     className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all focus:opacity-100"
                     aria-label="Delete Conversation"
