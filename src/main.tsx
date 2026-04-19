@@ -4,6 +4,8 @@ import App from './App.tsx';
 import './index.css';
 
 console.log('🚀 Neurohx Application Initializing...');
+console.log('📍 Current URL:', window.location.href);
+console.log('🛠 Environment:', process.env.NODE_ENV);
 
 window.addEventListener('error', (event) => {
   console.error('❌ Global Runtime Error:', event.error);

@@ -43,7 +43,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const apiKey = process.env.GEMINI_API_KEY || '';
+const ai = new GoogleGenAI({ apiKey });
 
 const TypingIndicator = () => (
   <div className="flex gap-1.5 items-center px-1">

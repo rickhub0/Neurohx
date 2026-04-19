@@ -9,7 +9,8 @@ import { useToast } from './Toast';
 import { GoogleGenAI } from '@google/genai';
 import { useNavigate } from 'react-router-dom';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const apiKey = process.env.GEMINI_API_KEY || '';
+const ai = new GoogleGenAI({ apiKey });
 
 interface Props {
   assessment: AssessmentDefinition;
